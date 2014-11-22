@@ -186,3 +186,74 @@ do  -- journal
     end
 end
 
+do
+    local pcfb_widget
+    local pcfb_timer
+
+    local notification = nil
+    local color = nil
+
+    local function update_pcfb()
+        local perc = 0
+
+        local f = io.popen("pcfb rel")
+        for line in f:lines() do
+            perc = line
+        end
+        f:close()
+
+        pcfb_widget:set_markup(html(color, perc .. "%"))
+    end
+
+    function alert(timeout)
+        if notification ~= nil then
+            naughty.destroy(notification)
+            notification = nil
+        end
+
+        if type(timeout) == "number" then
+            os.execute("pcfb show")
+
+            notification = naughty.notify({
+                    icon = "/tmp/pcfb.png",
+                    timeout = timeout,
+                    bg = "#ffffff"
+            })
+        end
+    end
+
+    function enable(value)
+        if value then
+            launch("pcfb start")
+            color = "#87af5f"
+        else
+            launch("pcfb stop")
+            color = "#e54c62"
+        end
+
+        update_pcfb()
+    end
+
+
+    function widgets.pcfb()
+        pcfb_widget = wibox.widget.textbox()
+        pcfb_timer = timer({ timeout = 60 })
+
+        pcfb_timer:connect_signal("timeout", update_pcfb)
+        pcfb_timer:start()
+
+        pcfb_widget:connect_signal("mouse::enter", function () alert(0) end)
+        pcfb_widget:connect_signal("mouse::leave", function () alert(false) end)
+
+        enable(false)
+
+        return pcfb_widget
+    end
+
+    commands.pcfb = {
+        enable  = function() enable(true) end,
+        disable = function() enable(false) end,
+        show    = function() alert(4) end
+    }
+end
+
